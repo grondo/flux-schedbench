@@ -1,0 +1,6 @@
+include README.md
+include LICENSE
+include NOTICE.LLNS
+include NEWS.md
+recursive-include doc *.rst *.py requirements.txt
+include man/flux-schedbench.1

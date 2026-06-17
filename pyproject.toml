@@ -23,6 +23,9 @@ namespaces = true
 [tool.setuptools]
 script-files = ["src/cmd/flux-schedbench.py"]
 
+[tool.setuptools.data-files]
+"share/man/man1" = ["man/flux-schedbench.1"]
+
 [tool.setuptools_scm]
 fallback_version = "0.1.0"
 write_to = "src/bindings/python/flux/schedbench/version.py"

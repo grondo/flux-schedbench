@@ -1,0 +1,711 @@
+.\" Man page generated from reStructuredText.
+.
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.TH "FLUX-SCHEDBENCH" "1" "Jun 17, 2026" "" "flux-schedbench"
+.SH NAME
+flux-schedbench \- run benchmarks against fake or real resources
+.SH SYNOPSIS
+.nf
+\fBflux\fP \fBschedbench\fP \fBrun\fP \fITEST\fP [\fIOPTIONS\fP]
+\fBflux\fP \fBschedbench\fP \fBsweep\fP [\fITEST\fP] [\fIOPTIONS\fP]
+\fBflux\fP \fBschedbench\fP \fBreport\fP \fITEST\fP [\fIOPTIONS\fP]
+.fi
+.sp
+.SH DESCRIPTION
+.sp
+\fBflux schedbench\fP runs scheduler benchmarks against fake or real
+resources and saves the results for later reporting.
+.sp
+By default, \fBflux schedbench run\fP launches a fresh Flux subinstance
+configured with fake resources via the fake\-resources modprobe rc1 task
+(see \X'tty: link https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man5/flux-config-fake-resources.html'\fI\%flux\-config\-fake\-resources(5)\fP\X'tty: link') and re\-execs itself inside that
+subinstance to run the benchmark. With \fB\-\-exec\fP, no subinstance is
+launched and real jobs run against the broker the user is currently
+connected to.
+.sp
+\fBflux schedbench sweep\fP runs a cross\-product of benchmark
+configurations as parallel Flux jobs against the outer instance, sharing
+one results file and one live dashboard.  Single\-value parameters stay
+fixed across the sweep; comma lists and RFC 45 ranges become sweep axes.
+Use \fB\-\-from FILE.toml\fP for structured definitions including multi\-module
+scheduler recipes.
+.SH COMMANDS
+.SS run
+.sp
+\fBflux schedbench run\fP runs a named benchmark (see \fI\%BENCHMARKS\fP
+below) and appends the result to the results file.
+.INDENT 0.0
+.TP
+.B \-N, \-\-nodes=N
+Fake\-resource node count for the launched subinstance (default: 4).
+Ignored with \fI\%\-\-exec\fP — the real broker\(aqs resources are used
+instead.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-c, \-\-cores\-per\-node=C
+Cores per node in the fake resource set (default: 64). Ignored with
+\fI\%\-\-exec\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-g, \-\-gpus\-per\-node=G
+GPUs per node in the fake resource set (default: 8). Ignored with
+\fI\%\-\-exec\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-hwloc\-xml\-path=PATH
+Path to an hwloc XML file describing per\-node topology. Passed to
+the subinstance as \fB\-\-conf=fake\-resources.hwloc\-xml\-path=PATH\fP;
+the XML\(aqs per\-node shape is replicated across
+\fI\%\-\-nodes\fP\&. Useful for benchmarking topology\-aware schedulers
+(e.g. Fluxion). The path is also recorded in the results file so
+reports can show which run used which topology. Ignored with
+\fI\%\-\-exec\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-amend\-r=SPEC
+Reference to a Python amender that mutates R before it is written
+to KVS. \fBSPEC\fP is either a \fBmodule:function\fP reference or a
+path to a file with an \fBamend()\fP callable at module scope; see
+\X'tty: link https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man5/flux-config-fake-resources.html'\fI\%flux\-config\-fake\-resources(5)\fP\X'tty: link' for the amender contract.
+Passed to the subinstance as
+\fB\-\-conf=fake\-resources.amend\-r=SPEC\fP\&. Typically paired with
+\fI\%\-\-hwloc\-xml\-path\fP to inject scheduler\-specific topology
+metadata (Fluxion JGF, node properties, etc.) into R. The spec
+is recorded in the results file. Ignored with \fI\%\-\-exec\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-scheduler=NAME
+Scheduler module to load in the fake\-resources subinstance (default:
+\fBsched\-simple\fP). Implemented by passing
+\fB\-\-conf=modules.alternatives.sched=NAME\fP to the underlying
+\X'tty: link https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man1/flux-start.html'\fI\%flux\-start(1)\fP\X'tty: link'\&. Ignored with \fI\%\-\-exec\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-scheduler\-options=OPTS
+Module options string for the scheduler, shlex\-parsed into a list and
+encoded into the subinstance config as
+\fB\-\-conf=modules.sched.args=[\(dqopt1\(dq, \(dqopt2\(dq]\fP\&. Ignored with
+\fI\%\-\-exec\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-o, \-\-extra\-start\-options=OPTS
+Extra arguments to pass through to the underlying \X'tty: link https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man1/flux-start.html'\fI\%flux\-start(1)\fP\X'tty: link'
+when launching the fake\-resources subinstance; shlex\-parsed. May be
+given multiple times. Useful for setting broker attributes
+(\fB\-\-setattr=...\fP) or other conf keys that schedbench doesn\(aqt have
+a dedicated flag for. Ignored with \fI\%\-\-exec\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-x, \-\-exec
+Run real jobs against the current enclosing instance — no fake
+resources, no subinstance launch. Use when running inside an
+allocation where the broker\(aqs currently\-loaded scheduler and
+currently\-up resources are what you want to benchmark.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-watcher=NAME
+Event\-watcher implementation (default: \fBjournal\fP). The journal
+watcher imposes a single subscription on kvs\-watch; the per\-job watcher
+opens one subscription per job, useful for measuring watcher overhead
+under high job counts. Valid values are \fBjournal\fP and \fBper\-job\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-n, \-\-njobs=N
+Number of jobs to submit (default: 1000). Used by throughput and
+locality; ignored by fill\-machine, which computes its job count
+from the resource shape.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-slot\-cores=K
+Cores per slot (default: 1). The total cores requested by each
+job is \fB\-\-slot\-cores * \-\-nslots\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-slot\-gpus=K
+GPUs per slot (default: 0). The total GPUs requested by each job
+is \fB\-\-slot\-gpus * \-\-nslots\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-nslots=N
+Slots per job (locality only; default: 1). Each slot requests
+\fI\%\-\-slot\-cores\fP cores and \fI\%\-\-slot\-gpus\fP GPUs;
+locality scores how well the scheduler packs each slot into a
+single locality domain.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-duration=SPEC
+Job duration (locality only; default: \fB0.1s\fP). \fBSPEC\fP is one
+of:
+.INDENT 7.0
+.IP \(bu 2
+an FSD string (e.g. \fB0.1s\fP, \fB2m\fP) — every job runs that
+long;
+.IP \(bu 2
+\fBfill\fP — jobs never complete; the benchmark saturates the
+cluster and cancels everything once placement is observed;
+.IP \(bu 2
+\fBrandom[:LO\-HI]\fP — uniform random duration per job (default
+range \fB0.1s\-1.0s\fP).
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-tag=LABEL
+Free\-form label stored in the results metadata for filtering and
+reporting.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-results\-file=PATH
+Results file path (default: \fB\&./schedbench\-results.json\fP). The file
+is created if absent; new runs append to the existing record list.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-no\-save
+Don\(aqt append to the results file. Useful for ad\-hoc runs that
+shouldn\(aqt pollute the persistent record.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-ui=auto|on|off
+Interactive terminal UI: \fBauto\fP (default) enables it when stdout is a
+TTY and \fI\%\-\-quiet\fP is not set; \fBon\fP forces it; \fBoff\fP falls
+back to the JSON event stream.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-color=auto|always|never
+Color output for the terminal UI: \fBauto\fP (default) honors NO_COLOR and
+TERM; \fBalways\fP / \fBnever\fP force.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-q, \-\-quiet
+Emit only terminal events (\fBtest.start\fP, \fBresult\fP,
+\fBtest.complete\fP, \fBtest.error\fP). On a non\-TTY stdout, produces a
+single JSON object containing the result metrics.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-v, \-\-verbose
+Emit progress, info, and metric events from the benchmark.
+.UNINDENT
+.SS report
+.sp
+\fBflux schedbench report\fP pretty\-prints results for a single
+benchmark from the results file.
+.INDENT 0.0
+.TP
+.B \-\-results\-file=PATH
+Results file path (default: \fB\&./schedbench\-results.json\fP).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-filter=KEY=VAL
+Show only runs matching \fIKEY=VAL\fP\&. May be given multiple times;
+filters combine with AND semantics. Common keys: \fBtag\fP, \fBwatcher\fP,
+\fBscheduler.name\fP, \fBreal_exec\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-o, \-\-format=FORMAT
+Output format. May be a named format (\fBdefault\fP, \fBlong\fP, \fBcsv\fP,
+or any user\-defined format from
+\fB~/.config/flux/flux\-schedbench\-report\-TEST.toml\fP; pass \fBhelp\fP to
+list available names), or a literal Python\-style format string.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-sort=KEY,...
+Sort rows by one or more keys. Prefix a key with \fB\-\fP for descending
+order.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-no\-header
+Omit the header row.
+.UNINDENT
+.SS sweep
+.sp
+\fBflux schedbench sweep\fP runs a cross\-product of benchmark
+configurations and writes all results to a single results file with
+shared sweep metadata.  Each point in the matrix becomes one child
+\fBflux schedbench run\fP invocation submitted as a Flux job to the
+outer instance; the dispatcher tracks them in parallel through a single
+\fBflux.job.JobWatcher\fP and renders progress to a live dashboard.
+.sp
+Sweep flags mirror \fBflux schedbench run\fP (same names, same
+semantics), with one extension: every axis\-capable flag accepts either a
+single value (fixed across the sweep) or a multi\-value spec that becomes
+a sweep axis.  Multi\-value specs are:
+.INDENT 0.0
+.IP \(bu 2
+a comma list — \fB\-\-nodes=4,8,16\fP
+.IP \(bu 2
+an RFC 45 range — \fB\-\-nodes=4\-1024:2:*\fP (4 to 1024, step ×2)
+.IP \(bu 2
+a Python list in TOML — \fBnjobs = [4096, 8192]\fP
+.UNINDENT
+.sp
+The axis\-capable flags are: \fB\-\-nodes\fP, \fB\-\-cores\-per\-node\fP,
+\fB\-\-gpus\-per\-node\fP, \fB\-\-njobs\fP, \fB\-\-slot\-cores\fP,
+\fB\-\-slot\-gpus\fP, \fB\-\-hwloc\-xml\-path\fP, \fB\-\-amend\-r\fP,
+\fB\-\-scheduler\fP, \fB\-\-scheduler\-options\fP, \fB\-\-watcher\fP,
+\fB\-\-tag\fP, and the \fITEST\fP positional itself (which accepts a comma
+list for a multi\-benchmark sweep).
+.sp
+The sweep itself runs against the outer Flux instance.  To run a sweep
+without a pre\-existing outer instance, wrap in \X'tty: link https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man1/flux-start.html'\fI\%flux\-start(1)\fP\X'tty: link':
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+flux start \-s 1 \-\- flux schedbench sweep ...
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Sweep\-only flags:
+.INDENT 0.0
+.TP
+.B \-\-from=PATH
+Load sweep parameters and scheduler recipes from a TOML file.  CLI
+flag values for the same parameters take precedence over file values.
+See \fI\%SWEEP TOML FORMAT\fP below.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-sweep\-name=NAME
+Human\-readable label for this sweep, stored in every record\(aqs
+\fBsweep.name\fP field.  Default: a timestamp\-based name.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-per\-run\-nodes=N
+Nodes to allocate to each child Flux job (default: 1).  The child
+schedbench process spawns a fake\-resources subinstance inside its
+allocation, so for fake\-resources benchmarks one outer node per child
+is sufficient regardless of the per\-run \fB\-\-nodes\fP value.
+.UNINDENT
+.sp
+The standard \fBrun\fP\-side flags also apply (\fB\-\-results\-file\fP,
+\fB\-\-no\-save\fP, \fB\-\-ui\fP, \fB\-\-color\fP, \fB\-\-conf\fP,
+\fB\-\-real\-exec\fP).
+.SH SWEEP TOML FORMAT
+.sp
+A sweep definition file is a TOML document; the whole file is the sweep
+(no outer \fB[sweep]\fP wrapper).  Top\-level scalars become fixed
+parameters; top\-level lists and RFC 45 strings become sweep axes.
+Structured sections (\fB[[scheduler]]\fP, \fB[conf]\fP) configure dispatch.
+.sp
+A complete example, using Fluxion from a build directory:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+# Optional sweep label.  Auto\-generated if omitted.
+name = \(dqfluxion\-vs\-simple\(dq
+
+# Top\-level parameters.  Single values are fixed across the
+# sweep; lists and RFC 45 ranges become axes.
+test = \(dqthroughput\(dq
+nodes = \(dq16\-1024:2\(dq            # axis: 16, 32, 64, ..., 1024
+njobs = [4096, 8192]           # axis: explicit list
+cores_per_node = 64            # fixed: scalar
+real_exec = false              # fixed: scalar
+
+# Conf entries forwarded to every child run as \-\-conf=KEY=VALUE.
+# Equivalent to passing \-\-conf=KEY=VALUE on the sweep command line.
+[conf]
+\(dqresource.noverify\(dq = true
+
+# [[scheduler]] array\-of\-tables: each entry contributes one value
+# to the implicit \(dqscheduler\(dq axis.  \(ga\(ganame\(ga\(ga is the axis label and
+# appears in records / dashboard / report rows.
+[[scheduler]]
+name = \(dqsimple\(dq
+
+[[scheduler]]
+name = \(dqfluxion\(dq
+env = [
+  \(dqFLUXION_HOME=/home/user/git/flux\-sched\(dq,
+  \(dqFLUX_MODPROBE_PATH_APPEND=$FLUXION_HOME/etc/modprobe\(dq,
+  \(dqFLUX_PYTHONPATH_PREPEND=$FLUXION_HOME/src/python\(dq,
+  \(dqFLUX_MODULE_PATH_PREPEND=$FLUXION_HOME/resource/modules:$FLUXION_HOME/qmanager/modules\(dq,
+]
+
+[[scheduler.modules]]
+name = \(dqsched\-fluxion\-resource\(dq
+options = \(dqpolicy=high\(dq
+
+[[scheduler.modules]]
+name = \(dqsched\-fluxion\-qmanager\(dq
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Scheduler recipe fields:
+.INDENT 0.0
+.TP
+.B \fBname\fP (required)
+Axis value used in records, the dashboard, and report rows.  Also
+the default \fBmodule\fP to force\-load when no \fBmodules\fP block is
+given (so a shorthand block with just \fBname = \(dqsched\-backfill\(dq\fP
+means \(dqforce\-load sched\-backfill\(dq).
+.TP
+.B \fBmodule\fP (optional)
+Scheduler module name to force\-load via
+\fB\-\-conf=modules.alternatives.sched=NAME\fP\&.  Defaults to \fBname\fP
+in shorthand\-form blocks (just \fBname\fP, no \fBmodules\fP).  When
+\fBmodules\fP is present, \fBmodule\fP defaults to \fBNone\fP — no
+\fB\-\-scheduler\fP override, modprobe picks the default via priority
+resolution.
+.TP
+.B \fBmodules\fP (optional)
+List of \fB{name, options}\fP tables.  Each entry\(aqs \fBoptions\fP (if
+present) is encoded as \fB\-\-conf=modules.<name>.args=[...]\fP for the
+child run.  Order is informational; modprobe decides load order
+from dependencies.
+.TP
+.B \fBconf\fP (optional)
+Table of additional \fB\-\-conf=KEY=VALUE\fP entries applied only when
+this recipe is selected (in addition to the sweep\(aqs top\-level
+\fB[conf]\fP).  Useful for scheduler\-specific tuning.
+.TP
+.B \fBenv\fP (optional)
+List of \fBflux.job.JobspecV1.from_submit\fP\-style env filter
+rules applied to the child job\(aqs environment.  Each rule is one of:
+.INDENT 7.0
+.IP \(bu 2
+\fB\(dqVAR=VALUE\(dq\fP — set; \fB$VAR\fP / \fB${VAR}\fP expand against the
+env built by earlier rules
+.IP \(bu 2
+\fB\(dqVAR\(dq\fP or \fB\(dqGLOB*\(dq\fP — import from the submitter env
+.IP \(bu 2
+\fB\(dq\-PATTERN\(dq\fP — delete matching variables
+.IP \(bu 2
+\fB\(dq^/path\(dq\fP — read additional rules from a file
+.UNINDENT
+.sp
+The submitter environment is preserved by default; rules only add
+or remove.  As a convenience, a dict \fBenv = { K = \(dqV\(dq, ... }\fP is
+accepted and converted to \fB[\(dqK=V\(dq, ...]\fP rules — handy for the
+simple \(dqset these vars\(dq case without inter\-rule \fB$VAR\fP
+references.
+.UNINDENT
+.sp
+Common TOML pitfall — keys placed after sub\-table headers attach to the
+\fIsub\-table\fP, not the parent.  Place top\-level keys (\fBenv\fP, \fBconf\fP)
+\fIbefore\fP any \fB[[scheduler.modules]]\fP headers, since headers terminate
+the current scope:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+# CORRECT
+[[scheduler]]
+name = \(dqfluxion\(dq
+env = [...]              # belongs to [[scheduler]]
+
+[[scheduler.modules]]
+name = \(dqsched\-fluxion\-resource\(dq
+
+# WRONG — env attaches to the module entry, not the scheduler
+[[scheduler]]
+name = \(dqfluxion\(dq
+
+[[scheduler.modules]]
+name = \(dqsched\-fluxion\-resource\(dq
+env = [...]              # attaches to the module — error
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+The TOML parser raises a hard error for unknown keys in
+\fB[[scheduler]]\fP and \fB[[scheduler.modules]]\fP blocks to surface this
+errors immediately rather than silently dropping the misplaced key.
+.SH BENCHMARKS
+.INDENT 0.0
+.TP
+.B throughput
+Submit \fIN\fP jobs as fast as possible and measure submit, alloc,
+ingest, and clean rates. Use \fB\-\-njobs\fP to control the job
+count and \fB\-\-slot\-cores\fP / \fB\-\-slot\-gpus\fP to
+control per\-job resource requirements. Headline metric:
+\fBthroughput\fP (jobs/sec, broker\-side from submit to clean).
+.TP
+.B fill\-machine
+Submit jobs sized to saturate the resource set; measure
+time\-to\-fill, then cancel and measure cleanup. Use
+\fB\-\-slot\-cores\fP and \fB\-\-slot\-gpus\fP to control
+per\-job requirements; the job count is computed from the
+resource shape. Headline metric: \fBtime_to_fill\fP (seconds from
+first submit to last \fBstart\fP event).
+.TP
+.B locality
+Submit multi\-slot jobs and score each placement against an hwloc
+topology. A slot is \(dqsatisfied\(dq when its cores and GPUs all
+share a single locality domain (by default the NUMA node
+identified by hwloc\(aqs \fBnodeset\fP attribute). Use
+\fB\-\-nslots\fP, \fB\-\-slot\-cores\fP, and
+\fB\-\-slot\-gpus\fP to shape the request, and
+\fB\-\-duration\fP to control job lifetime. Requires
+\fB\-\-hwloc\-xml\-path\fP — the predicate needs the topology to
+score against. Headline metric: \fBmean_locality_score\fP (mean
+per\-job satisfied / requested slots, in \fB[0, 1]\fP).
+.UNINDENT
+.SH EXAMPLES
+.sp
+Run a basic throughput benchmark against a 4\-node fake cluster (the
+defaults), saving to the default results file:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ flux schedbench run throughput \-\-njobs=500
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Benchmark against a larger fake cluster and tag the run:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ flux schedbench run throughput \-N 100 \-\-cores\-per\-node=32 \e
+    \-\-njobs=10000 \-\-tag=large\-throughput
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Benchmark against an alternative scheduler:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ flux schedbench run throughput \-N 100 \e
+    \-\-scheduler=sched\-fluxion\-qmanager \e
+    \-\-scheduler\-options=\(dqqueue\-depth=64\(dq
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Benchmark Fluxion with topology\-aware scheduling against a synthetic 100\-node
+cluster, using the local machine\(aqs hwloc topology replicated per node and a
+Fluxion JGF amender to populate \fBR[\(dqscheduling\(dq]\fP:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ lstopo \-\-of xml local.xml
+$ flux schedbench run throughput \-N 100 \e
+    \-\-hwloc\-xml\-path=./local.xml \e
+    \-\-amend\-r=./fluxion_amender.py \e
+    \-\-scheduler=sched\-fluxion\-qmanager
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Measure placement quality on a synthetic NUMA\-rich topology — how well does
+the scheduler keep each 4\-core slot inside a single NUMA domain?:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ lstopo \-i \(dqpackage:2 numa:4 core:8 pu:1\(dq \-\-of xml > syn.xml
+$ flux schedbench run locality \-N 16 \-\-hwloc\-xml\-path=./syn.xml \e
+    \-\-nslots=2 \-\-slot\-cores=4 \-\-njobs=200
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Compare locality and throughput trade\-offs across schedulers by running both
+benchmarks against each and reading the headline metrics from the same
+results file:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ for sched in sched\-simple sched\-fluxion\-qmanager; do
+>     flux schedbench run locality \-N 16 \e
+>         \-\-hwloc\-xml\-path=./syn.xml \-\-scheduler=$sched \e
+>         \-\-tag=$sched \-\-nslots=2 \-\-slot\-cores=4 \-\-njobs=200
+> done
+$ flux schedbench report locality \-\-sort=\-mean_locality_score
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Benchmark inside a real allocation against real hardware:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ flux alloc \-N 4 \-\- flux schedbench run throughput \-\-exec \-\-njobs=500
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Sweep node counts and schedulers in a single run, with a 1\-node child
+per point:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ flux alloc \-N 16 \-\- flux schedbench sweep throughput \e
+    \-\-nodes=16,64,256,1024 \e
+    \-\-scheduler=sched\-simple,sched\-backfill \e
+    \-\-njobs=10000
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Sweep from a TOML file with a fluxion recipe — multi\-module load plus
+env overlay:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ cat smoke.toml
+test = \(dqfill\-machine\(dq
+nodes = \(dq16\-1024:2\(dq
+njobs = 49152
+
+[[scheduler]]
+name = \(dqfluxion\(dq
+env = [
+  \(dqFLUXION_HOME=/home/user/git/flux\-sched\(dq,
+  \(dqFLUX_MODPROBE_PATH_APPEND=$FLUXION_HOME/etc/modprobe\(dq,
+]
+[[scheduler.modules]]
+name = \(dqsched\-fluxion\-resource\(dq
+[[scheduler.modules]]
+name = \(dqsched\-fluxion\-qmanager\(dq
+$ flux start \-s 1 \-\- flux schedbench sweep \-\-from=smoke.toml
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Pretty\-print results for one benchmark:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ flux schedbench report throughput
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Export results to CSV for downstream plotting:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ flux schedbench report throughput \-o csv > throughput.csv
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Show only runs with a particular tag, sorted by throughput descending:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ flux schedbench report throughput \-\-filter=tag=large\-throughput \e
+    \-\-sort=\-throughput
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+Show all runs from a single sweep, sorted by node count:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ flux schedbench report fill\-machine \-\-filter=sweep.name=smoke \e
+    \-\-sort=nodes
+.EE
+.UNINDENT
+.UNINDENT
+.SH FILES
+.INDENT 0.0
+.TP
+.B \fB\&./schedbench\-results.json\fP
+Default results file written by \fBflux schedbench run\fP and read
+by \fBflux schedbench report\fP\&. Override with
+\fB\-\-results\-file\fP\&.
+.TP
+.B \fB~/.config/flux/flux\-schedbench\-report\-TEST.toml\fP
+Per\-benchmark user\-defined output formats consumed by
+\fBflux schedbench report \-o FORMAT\fP\&. See \X'tty: link https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man5/flux-config.html'\fI\%flux\-config(5)\fP\X'tty: link'
+for general format syntax.
+.UNINDENT
+.SH ENVIRONMENT
+.INDENT 0.0
+.TP
+.B FLUX_SCHEDBENCH_ISOLATED
+Set to \fB1\fP by \fBflux schedbench run\fP when launching the inner
+schedbench invocation inside the fake\-resources subinstance. The inner
+invocation checks this variable as a recursion guard and runs the
+benchmark directly rather than launching another subinstance. Users
+should not normally set this.
+.UNINDENT
+.SH RESOURCES
+.sp
+Flux: \X'tty: link http://flux-framework.org'\fI\%http://flux\-framework.org\fP\X'tty: link'
+.sp
+Flux RFC: \X'tty: link https://flux-framework.readthedocs.io/projects/flux-rfc'\fI\%https://flux\-framework.readthedocs.io/projects/flux\-rfc\fP\X'tty: link'
+.sp
+Issue Tracker: \X'tty: link https://github.com/flux-framework/flux-schedbench/issues'\fI\%https://github.com/flux\-framework/flux\-schedbench/issues\fP\X'tty: link'
+.SH SEE ALSO
+.sp
+\X'tty: link https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man5/flux-config-fake-resources.html'\fI\%flux\-config\-fake\-resources(5)\fP\X'tty: link', \X'tty: link https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man1/flux-start.html'\fI\%flux\-start(1)\fP\X'tty: link', \X'tty: link https://flux-framework.readthedocs.io/projects/flux-core/en/latest/man1/flux-alloc.html'\fI\%flux\-alloc(1)\fP\X'tty: link'
+.SH AUTHOR
+This page is maintained by the Flux community.
+.SH COPYRIGHT
+Copyright 2026 Lawrence Livermore National Security, LLC and Flux developers.
+
+SPDX-License-Identifier: LGPL-3.0
+.\" Generated by docutils manpage writer.
+.
