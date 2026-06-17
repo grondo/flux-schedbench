@@ -281,7 +281,7 @@ Sweep-only flags:
 
 The standard ``run``-side flags also apply (:option:`--results-file`,
 :option:`--no-save`, :option:`--ui`, :option:`--color`, :option:`--conf`,
-:option:`--real-exec`).
+:option:`--exec`).
 
 
 SWEEP TOML FORMAT
@@ -332,6 +332,23 @@ A complete example, using Fluxion from a build directory::
     [[scheduler.modules]]
     name = "sched-fluxion-qmanager"
 
+For topology-aware benchmarks using ``--hwloc-xml-path``, the ``amend_r``
+field simplifies registering an R amender callback::
+
+    test = "locality"
+    hwloc_xml_path = ["topo1.xml", "topo2.xml"]
+
+    [[scheduler]]
+    name = "simple"
+
+    [[scheduler]]
+    name = "treepool"
+    modules = [{ name = "sched-simple", options = "pool-class=TreePool" }]
+    amend_r = "flux.resource.TreePool:amend"
+
+Without ``amend_r``, you'd write ``[scheduler.conf]`` with
+``"fake-resources.amend-r" = "flux.resource.TreePool:amend"``.
+
 Scheduler recipe fields:
 
 ``name`` (required)
@@ -358,6 +375,15 @@ Scheduler recipe fields:
     Table of additional ``--conf=KEY=VALUE`` entries applied only when
     this recipe is selected (in addition to the sweep's top-level
     ``[conf]``).  Useful for scheduler-specific tuning.
+
+``amend_r`` (optional)
+    Shortcut for ``conf["fake-resources.amend-r"]``.  The benchmark
+    synthesizes a fake R via :manpage:`flux-config-fake-resources(5)`;
+    this option registers an amender callback that modifies R before
+    publication.  Used with topology-aware schedulers like TreePool
+    or Fluxion.  Example: ``"flux.resource.TreePool:amend"``.  When
+    both ``amend_r`` and ``conf["fake-resources.amend-r"]`` are present,
+    ``amend_r`` takes precedence.
 
 ``env`` (optional)
     List of :class:`flux.job.JobspecV1.from_submit`-style env filter
