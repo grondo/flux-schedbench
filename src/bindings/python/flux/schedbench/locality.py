@@ -150,13 +150,15 @@ class LocalityPredicate:
         # disagrees with what the amender's get_next_id assigns.
         self._next_core_id = 0
         self._next_gpu_id = 0
-        # PCIDev elements that have already contributed a GPU.
-        # A physical GPU can expose multiple compute OSDev faces
-        # (e.g. cuda0 + nvml0 for NVIDIA when both backends are
-        # loaded, or opencl0d0 + rsmi0 for AMD) under one
-        # PCIDev. Without deduplication these would count as
-        # separate GPUs and inflate the schedulable pool.
-        self._seen_pci = set()
+        # Track (PCIDev, backend) pairs that have already contributed
+        # a GPU. A physical GPU can expose multiple compute OSDev
+        # faces under different backends (e.g. cuda0 + nvml0 for
+        # NVIDIA) under one PCIDev. Without deduplication these
+        # would count as separate GPUs. However, AMD partitioned
+        # GPUs (CPX/TPX) expose multiple devices with the same
+        # backend under one PCIDev and should be counted separately.
+        # Store as dict: pcidev_id -> set of backend names.
+        self._seen_pci_backends = {}
         root = ET.fromstring(hwloc_xml)
         self._extract_hostname(root)
         self._index_topology(root, [])
@@ -316,19 +318,53 @@ class LocalityPredicate:
                 # controlD*) — the name filter distinguishes the two.
                 #
                 # Dedupe: a single physical GPU can expose multiple
-                # compute OSDev faces under one PCIDev (e.g. NVIDIA
-                # with both CUDA and NVML backends loaded, or AMD
-                # with both OpenCL and RSMI). Count only the first
-                # face per PCIDev so the schedulable pool reflects
-                # physical devices, not backend instances.
-                pci_key = None
+                # compute OSDev faces under different backends (e.g.
+                # NVIDIA with both CUDA and NVML backends loaded).
+                # Only count one GPU per (PCIDev, backend) pair to
+                # avoid double-counting when the same GPU appears
+                # through multiple backends.
+                #
+                # However, AMD partitioned GPUs (CPX/TPX) expose
+                # multiple RSMI devices under one PCIDev, each
+                # representing a distinct logical GPU. These share
+                # the same backend, so tracking (PCIDev, backend)
+                # pairs correctly preserves them while still
+                # deduplicating cross-backend duplicates.
+                name = obj.get("name", "")
+                backend = None
+                for prefix in _COMPUTE_GPU_PREFIXES:
+                    if name.startswith(prefix):
+                        backend = prefix
+                        break
+
+                # Find PCIDev ancestor
+                pci_id = None
                 for ancestor in reversed(ancestors[:-1]):
                     if ancestor.get("type") == "PCIDev":
-                        pci_key = id(ancestor)
+                        pci_id = id(ancestor)
                         break
-                if pci_key is None or pci_key not in self._seen_pci:
-                    if pci_key is not None:
-                        self._seen_pci.add(pci_key)
+
+                # Check if this PCI device was already seen with
+                # a different backend. If so, skip it (it's a
+                # duplicate like cuda0 + nvml0 for the same GPU).
+                # If it's the same backend, count it (AMD partitioned
+                # GPUs like rsmi0, rsmi1, rsmi2 under one PCIDev).
+                is_duplicate = False
+                if pci_id is not None and backend is not None:
+                    backends_seen = self._seen_pci_backends.get(pci_id, set())
+                    # Check if we've seen this PCI device with ANY backend
+                    if backends_seen:
+                        # If we've seen it with a different backend, it's a duplicate
+                        if backend not in backends_seen:
+                            is_duplicate = True
+                        # If same backend, not a duplicate - count it
+                    # Record this backend for this PCIDev
+                    if not is_duplicate:
+                        if pci_id not in self._seen_pci_backends:
+                            self._seen_pci_backends[pci_id] = set()
+                        self._seen_pci_backends[pci_id].add(backend)
+
+                if not is_duplicate:
                     dom = self._domain_of(obj, ancestors[:-1])
                     if dom is not None:
                         self.gpu_domain[self._next_gpu_id] = dom
