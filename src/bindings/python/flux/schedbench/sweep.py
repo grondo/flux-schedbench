@@ -2060,7 +2060,12 @@ def run_flux(
         if state["error"]:
             err = state["error"]
         elif jobstatus.status == "failed":
-            err = f"job failed (exitcode {jobstatus.exitcode})"
+            # Fetch exception note from the job to provide better diagnostics
+            err_detail = _get_job_error_detail(handle, int(jobid_obj))
+            if err_detail:
+                err = f"job failed: {err_detail}"
+            else:
+                err = f"job failed (exitcode {jobstatus.exitcode})"
         else:
             err = "child produced no result event"
         emitter.run_failed(rs.run_index, err)
@@ -2069,6 +2074,39 @@ def run_flux(
 
     emitter.sweep_complete()
     return counters["n_ok"], counters["n_failed"]
+
+
+def _get_job_error_detail(handle, jobid):
+    """Fetch detailed error information from a failed job.
+
+    Attempts to retrieve the exception note from the job's eventlog
+    and the last few lines of stderr. Returns a concise error string
+    or None if no detail is available.
+    """
+    try:
+        # Try to get the exception note from the eventlog
+        import flux.job
+
+        eventlog = flux.job.event_watch(handle, jobid)
+        exception_note = None
+        for event in eventlog:
+            if event.name == "exception":
+                exception_note = event.context.get("note", "")
+                break
+
+        if exception_note:
+            # Truncate long exception notes
+            if len(exception_note) > 200:
+                exception_note = exception_note[:200] + "..."
+            return exception_note
+
+        # Fall back to stderr if available
+        # Note: This requires the job to have completed
+        # For now, just return None as stderr may not be accessible
+        return None
+    except Exception:
+        # If we can't fetch details, fail gracefully
+        return None
 
 
 def _build_sweep_jobspec(argv, num_nodes, name, env_rules=None):

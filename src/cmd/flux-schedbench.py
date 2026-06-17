@@ -1372,6 +1372,10 @@ def cmd_sweep(args):
             n_failed,
             n_ok + n_failed,
         )
+        LOGGER.info(
+            "To debug failures: flux jobs -a | grep %s  # then flux job attach <jobid>",
+            sweep_id[:8],
+        )
     return 0 if n_failed == 0 else 1
 
 
