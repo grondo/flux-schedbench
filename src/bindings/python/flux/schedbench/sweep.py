@@ -278,6 +278,7 @@ _KNOWN_SCHEDULER_KEYS = frozenset(
         "modules",
         "conf",
         "env",
+        "amend_r",
     }
 )
 
@@ -317,6 +318,14 @@ def _recipe_from_block(block):
       threads through as ``--conf=modules.<name>.args=[...]``.
     * ``conf`` -> dict of runtime conf entries (read by modules
       via ``flux_conf_get()``, distinct from load-time args).
+    * ``amend_r`` -> shortcut for ``conf["fake-resources.amend-r"]``.
+      The benchmark synthesizes a fake R via
+      ``flux-config-fake-resources(5)``; this option registers an
+      amender callback that modifies R before publication.  Used
+      with topology-aware schedulers like TreePool / Fluxion.
+      Example: ``"flux.resource.TreePool:amend"``.  When both
+      ``amend_r`` and ``conf["fake-resources.amend-r"]`` are
+      present, ``amend_r`` takes precedence.
     * ``env`` -> list of :meth:`flux.job.JobspecV1.from_submit`
       env filter rules applied to the submitter's environment:
 
@@ -398,11 +407,16 @@ def _recipe_from_block(block):
             f"rule strings or a dict (got "
             f"{type(raw_env).__name__})"
         )
+    conf = dict(block.get("conf") or {})
+    # Convenience: amend_r field automatically maps to fake-resources.amend-r
+    # in conf, so users don't need to know the internal config structure.
+    if "amend_r" in block:
+        conf["fake-resources.amend-r"] = block["amend_r"]
     return {
         "name": name,
         "module": module,
         "modules": modules,
-        "conf": dict(block.get("conf") or {}),
+        "conf": conf,
         "env": env,
     }
 
