@@ -430,6 +430,99 @@ class TestLocalityPredicateIndexing(unittest.TestCase):
         # the deduped nvml0/nvml1 faces).
         self.assertEqual(sorted(pred.gpu_domain.keys()), [0, 1])
 
+    def test_amd_partitioned_gpus_not_deduped(self):
+        """AMD MI250X GPUs in CPX/TPX modes expose multiple logical
+        GPUs (GCDs) per PCIDev with the same backend (rsmi). These
+        should be counted as separate GPUs, not deduplicated.
+
+        This tests the fix for issue where TPX mode (3 GPUs per
+        PCIDev) was incorrectly reporting 4 GPUs instead of 12."""
+        xml = """\
+<topology version="2.0">
+  <object type="Machine">
+    <object type="Group" nodeset="0x1">
+      <object type="NUMANode" nodeset="0x1"/>
+      <object type="PCIDev" nodeset="0x1">
+        <object type="OSDev" name="rsmi0" osdev_type="1"/>
+        <object type="OSDev" name="rsmi1" osdev_type="1"/>
+        <object type="OSDev" name="rsmi2" osdev_type="1"/>
+      </object>
+    </object>
+    <object type="Group" nodeset="0x2">
+      <object type="NUMANode" nodeset="0x2"/>
+      <object type="PCIDev" nodeset="0x2">
+        <object type="OSDev" name="rsmi3" osdev_type="1"/>
+        <object type="OSDev" name="rsmi4" osdev_type="1"/>
+        <object type="OSDev" name="rsmi5" osdev_type="1"/>
+      </object>
+    </object>
+    <object type="Group" nodeset="0x4">
+      <object type="NUMANode" nodeset="0x4"/>
+      <object type="PCIDev" nodeset="0x4">
+        <object type="OSDev" name="rsmi6" osdev_type="1"/>
+        <object type="OSDev" name="rsmi7" osdev_type="1"/>
+        <object type="OSDev" name="rsmi8" osdev_type="1"/>
+      </object>
+    </object>
+    <object type="Group" nodeset="0x8">
+      <object type="NUMANode" nodeset="0x8"/>
+      <object type="PCIDev" nodeset="0x8">
+        <object type="OSDev" name="rsmi9" osdev_type="1"/>
+        <object type="OSDev" name="rsmi10" osdev_type="1"/>
+        <object type="OSDev" name="rsmi11" osdev_type="1"/>
+      </object>
+    </object>
+  </object>
+</topology>"""
+        pred = LocalityPredicate(xml)
+        # 4 PCIDevs × 3 RSMI GPUs each = 12 GPUs total (TPX mode)
+        self.assertEqual(len(pred.gpu_domain), 12)
+        # Verify distribution across domains
+        self.assertEqual(pred.gpu_domain[0], "0x1")
+        self.assertEqual(pred.gpu_domain[1], "0x1")
+        self.assertEqual(pred.gpu_domain[2], "0x1")
+        self.assertEqual(pred.gpu_domain[3], "0x2")
+        self.assertEqual(pred.gpu_domain[4], "0x2")
+        self.assertEqual(pred.gpu_domain[5], "0x2")
+        self.assertEqual(pred.gpu_domain[6], "0x4")
+        self.assertEqual(pred.gpu_domain[7], "0x4")
+        self.assertEqual(pred.gpu_domain[8], "0x4")
+        self.assertEqual(pred.gpu_domain[9], "0x8")
+        self.assertEqual(pred.gpu_domain[10], "0x8")
+        self.assertEqual(pred.gpu_domain[11], "0x8")
+
+    def test_dedupe_only_across_different_backends(self):
+        """Verify that deduplication only occurs when the same
+        PCIDev has GPUs with different backends (e.g., cuda + nvml),
+        but not when multiple GPUs with the same backend appear
+        under one PCIDev (AMD partitions)."""
+        xml = """\
+<topology version="2.0">
+  <object type="Machine">
+    <object type="Group" nodeset="0x1">
+      <object type="NUMANode" nodeset="0x1"/>
+      <!-- NVIDIA GPU with multiple backends: dedupe to 1 GPU -->
+      <object type="PCIDev" nodeset="0x1" pci_busid="0000:01:00.0">
+        <object type="OSDev" name="cuda0" osdev_type="5"/>
+        <object type="OSDev" name="nvml0" osdev_type="1"/>
+        <object type="OSDev" name="opencl0d0" osdev_type="5"/>
+      </object>
+      <!-- AMD partitioned GPU, same backend: count all 3 GPUs -->
+      <object type="PCIDev" nodeset="0x1" pci_busid="0000:02:00.0">
+        <object type="OSDev" name="rsmi0" osdev_type="1"/>
+        <object type="OSDev" name="rsmi1" osdev_type="1"/>
+        <object type="OSDev" name="rsmi2" osdev_type="1"/>
+      </object>
+    </object>
+  </object>
+</topology>"""
+        pred = LocalityPredicate(xml)
+        # 1 NVIDIA GPU (deduped) + 3 AMD partition GPUs = 4 total
+        self.assertEqual(len(pred.gpu_domain), 4)
+        # All should be in the same domain
+        for gpu_id in range(4):
+            self.assertEqual(pred.gpu_domain[gpu_id], "0x1")
+
 
 class TestLocalityPredicateDescribe(unittest.TestCase):
     """The :meth:`describe` diagnostic helper."""
