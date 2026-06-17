@@ -367,6 +367,11 @@ def parse_args():
             "save aggregate metrics"
         ),
     )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {SCHEDBENCH_VERSION}",
+    )
     sub = parser.add_subparsers(dest="subcommand")
     sub.required = True  # subparsers(required=) requires Python 3.7+
 

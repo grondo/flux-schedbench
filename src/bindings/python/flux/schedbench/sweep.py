@@ -845,15 +845,29 @@ class SweepMatrix:
         dashboard title.  Axes with a single value are
         effectively-fixed and contribute nothing to comparing one
         run against another, so they're omitted here to keep the
-        title line short enough to fit on narrow terminals."""
+        title line short enough to fit on narrow terminals.
+
+        File paths (hwloc_xml_path, amend_r) are shown as basenames
+        to save space."""
         bits = []
         for k, values in self.axes.items():
             if len(values) <= 1:
                 continue
-            if len(values) <= 4:
-                bits.append(f"{k}={{{','.join(str(v) for v in values)}}}")
+            # For file paths, show basenames instead of full paths
+            if k in ("hwloc_xml_path", "amend_r"):
+                import os
+
+                display_values = [os.path.basename(str(v)) for v in values]
             else:
-                bits.append(f"{k}={{{values[0]}…{values[-1]}, " f"n={len(values)}}}")
+                display_values = [str(v) for v in values]
+
+            if len(values) <= 4:
+                bits.append(f"{k}={{{','.join(display_values)}}}")
+            else:
+                bits.append(
+                    f"{k}={{{display_values[0]}…{display_values[-1]}, "
+                    f"n={len(values)}}}"
+                )
         return " × ".join(bits) if bits else "(single configuration)"
 
     def varying_axes(self):
@@ -869,12 +883,19 @@ def _format_axis_value(k, v):
     will display it: bare for ``scheduler`` (no ``scheduler=`` and
     no ``sched-`` prefix), ``key=value`` for everything else.
 
+    File paths (hwloc_xml_path, amend_r) are shown as basenames
+    to save space and improve readability.
+
     Used both by the per-row renderer and by
     :func:`_per_axis_column_widths` to compute consistent column
     widths from a matrix's full value lists.
     """
     if k == "scheduler" and isinstance(v, str):
         return v.replace("sched-", "")
+    if k in ("hwloc_xml_path", "amend_r"):
+        import os
+
+        return f"{k}={os.path.basename(str(v))}"
     return f"{k}={v}"
 
 
@@ -1277,23 +1298,45 @@ class TerminalSweepEmitter:
                 # Effectively-fixed across the sweep — no column.
                 continue
             header = axis_name.upper()
-            value_widths = max(len(str(v)) for v in values)
+            # For file path axes, compute widths from basenames
+            if axis_name in ("hwloc_xml_path", "amend_r"):
+                import os
+
+                display_values = [os.path.basename(str(v)) for v in values]
+                value_widths = max(len(v) for v in display_values)
+            else:
+                value_widths = max(len(str(v)) for v in values)
             width = max(value_widths, len(header))
             is_numeric = all(
                 isinstance(v, (int, float)) and not isinstance(v, bool) for v in values
             )
             align = "right" if is_numeric else "left"
             # Bind axis_name into the lambda's default arg to avoid
-            # late-binding closure pitfalls.
-            self._columns.append(
-                {
-                    "name": axis_name,
-                    "header": header,
-                    "width": width,
-                    "align": align,
-                    "getter": lambda rs, k=axis_name: str(rs.axes.get(k, "")),
-                }
-            )
+            # late-binding closure pitfalls. For file paths, show basename.
+            if axis_name in ("hwloc_xml_path", "amend_r"):
+                import os
+
+                self._columns.append(
+                    {
+                        "name": axis_name,
+                        "header": header,
+                        "width": width,
+                        "align": align,
+                        "getter": lambda rs, k=axis_name: os.path.basename(
+                            str(rs.axes.get(k, ""))
+                        ),
+                    }
+                )
+            else:
+                self._columns.append(
+                    {
+                        "name": axis_name,
+                        "header": header,
+                        "width": width,
+                        "align": align,
+                        "getter": lambda rs, k=axis_name: str(rs.axes.get(k, "")),
+                    }
+                )
 
         # STATUS column — no fixed width; renders dynamically.
         self._columns.append(
