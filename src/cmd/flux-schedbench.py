@@ -1186,6 +1186,7 @@ class _ReportRow:
         for key in bench_cls.REPORT_HEADINGS:
             setattr(self, key, _MISSING)
         self.time = run.get("iso_timestamp", "")
+        self.test_name = run.get("test_name", "")
         sched = run.get("scheduler") or {}
         self.scheduler = sched.get("name", "")
         self.scheduler_recipe = sched.get("recipe_name", "")

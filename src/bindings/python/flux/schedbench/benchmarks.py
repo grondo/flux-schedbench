@@ -319,11 +319,10 @@ _DIAGNOSTIC_GROUP_CAP = 10
 #: specific to that benchmark (e.g. ``throughput`` for ThroughputBenchmark,
 #: ``time_to_fill`` for FillMachineBenchmark). Centralizing shared columns
 #: here keeps the abbreviations consistent across reports — SCHED always means
-#: scheduler, JOBS always means job count, etc. The 'test' field is
-#: intentionally absent: ``flux schedbench report`` requires a TEST argument
-#: so a TEST column would be redundant on every row.
+#: scheduler, JOBS always means job count, etc.
 COMMON_REPORT_HEADINGS = {
     "time": "TIME",
+    "test_name": "TEST",
     "scheduler": "SCHED",
     "scheduler_recipe": "RECIPE",
     "tag": "TAG",
