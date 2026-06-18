@@ -331,6 +331,7 @@ COMMON_REPORT_HEADINGS = {
     "cores": "CORES",
     "gpus": "GPUS",
     "njobs": "JOBS",
+    "hwloc_xml": "HWLOC",
     "submit_rate": "SUBMIT",
     "ingest_rate": "INGEST",
     "alloc_rate": "ALLOC",

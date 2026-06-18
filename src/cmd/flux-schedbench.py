@@ -1196,6 +1196,12 @@ class _ReportRow:
         self.nodes = res.get("nodes", "")
         self.cores = res.get("cores_per_node", "")
         self.gpus = res.get("gpus_per_node", "")
+        # hwloc_xml_path: show basename for display, full path available in raw record
+        hwloc_path = res.get("hwloc_xml_path", "")
+        if hwloc_path:
+            self.hwloc_xml = os.path.basename(hwloc_path)
+        else:
+            self.hwloc_xml = ""
         # real_exec is a boolean in the JSON; rendered as Y/N so the column
         # reads at a glance and is consistent in CSV too (no NaN cells for
         # pandas). Older records without the field render as "N" — correct,
