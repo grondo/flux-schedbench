@@ -1188,6 +1188,7 @@ class _ReportRow:
         self.time = run.get("iso_timestamp", "")
         sched = run.get("scheduler") or {}
         self.scheduler = sched.get("name", "")
+        self.scheduler_recipe = sched.get("recipe_name", "")
         self.tag = run.get("tag", "")
         self.watcher = run.get("watcher", "")
         res = run.get("resources") or {}

@@ -325,6 +325,7 @@ _DIAGNOSTIC_GROUP_CAP = 10
 COMMON_REPORT_HEADINGS = {
     "time": "TIME",
     "scheduler": "SCHED",
+    "scheduler_recipe": "RECIPE",
     "tag": "TAG",
     "watcher": "WATCHER",
     "nodes": "NODES",

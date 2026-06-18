@@ -2309,6 +2309,7 @@ def _build_record(rs, sweep_id, sweep_name, metrics, config, error):
         "real_exec": cfg.get("real_exec", False),
         "scheduler": {
             "name": cfg.get("scheduler", ""),
+            "recipe_name": (rs.scheduler_recipe or {}).get("name", ""),
             "options": (
                 rs.fixed.get("scheduler_options", "")
                 or rs.axes.get("scheduler_options", "")
