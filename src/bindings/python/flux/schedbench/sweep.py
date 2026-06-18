@@ -1663,9 +1663,11 @@ class TerminalSweepEmitter:
         display lets the user scan across rows (and across mixed-
         test sweeps) without tracking which column means what.
 
-        Uses integer-with-commas for any magnitude ≥ 1, three
-        decimals for sub-1 ratios, scientific notation below
-        0.001.
+        Uses consistent significant figures across all magnitudes:
+        - Large values (≥10): integer with commas (12,345)
+        - Values near 1: 3 decimals (1.000, 5.234)
+        - Small values (≥0.001): 3 decimals (0.923, 0.001)
+        - Tiny values: scientific notation (1.23e-05)
         """
         if value is None:
             return ""
@@ -1674,7 +1676,7 @@ class TerminalSweepEmitter:
         except (TypeError, ValueError):
             return f"result={value}"
         av = abs(v)
-        if av >= 1:
+        if av >= 10:
             num = f"{v:,.0f}"
         elif av >= 0.001:
             num = f"{v:.3f}"
@@ -1812,7 +1814,7 @@ class LineSweepEmitter:
         except (TypeError, ValueError):
             return f"result={v}"
         av = abs(f)
-        if av >= 1:
+        if av >= 10:
             num = f"{f:,.0f}"
         elif av >= 0.001:
             num = f"{f:.3f}"
