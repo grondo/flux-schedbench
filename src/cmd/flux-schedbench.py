@@ -57,7 +57,7 @@ from flux.schedbench.ui import TerminalEmitter
 
 LOGGER = logging.getLogger("flux-schedbench")
 try:
-    from flux.schedbench.version import SCHEDBENCH_VERSION
+    from flux.schedbench.version import SCHEDBENCH_VERSION  # type: ignore[attr-defined]
 except (ImportError, AttributeError):
     try:
         from flux.schedbench.version import (
