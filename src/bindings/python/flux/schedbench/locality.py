@@ -522,6 +522,8 @@ class LocalityBenchmark(Benchmark):
 
     REPORT_HEADINGS = {
         **COMMON_REPORT_HEADINGS,
+        "slot_cores": "CPS",
+        "slot_gpus": "GPS",
         "nslots": "NSLOTS",
         "duration": "DUR",
         "mean_locality_score": "LOC",
